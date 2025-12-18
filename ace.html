@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ace AppDrawer™</title>
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
+    <style>
+        /* --- DESIGN TOKENS --- */
+        :root {
+            --bg-color: #000000;
+            --glass: rgba(18, 18, 23, 0.85);
+            --glass-solid: rgba(30, 30, 35, 0.95);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-dim: #94a3b8;
+            --key-bg: rgba(255, 255, 255, 0.05);
+            --key-shadow: rgba(0, 0, 0, 0.3);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.4);
+            --secondary: #a855f7;
+            --danger: #ef4444;
+            --success: #10b981;
+            --font-main: 'Inter', system-ui, sans-serif;
+            --font-mono: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f3f4f6;
+            --glass: rgba(255, 255, 255, 0.9);
+            --glass-solid: #ffffff;
+            --border: rgba(0, 0, 0, 0.06);
+            --text: #1f2937;
+            --text-dim: #6b7280;
+            --key-bg: #ffffff;
+            --key-shadow: rgba(0, 0, 0, 0.05);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.12) 0%, transparent 40%);
+            color: var(--text);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0; overflow: hidden;
+            transition: background 0.3s ease;
+        }
+
+        /* --- SPLASH SCREEN (Color Shift) --- */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.6s ease, visibility 0.6s;
+            /* Animated Background */
+            background: linear-gradient(-45deg, #000000, #1e1b4b, #312e81, #0f0f15);
+            background-size: 400% 400%;
+            animation: gradientBG 6s ease infinite;
+        }
+        @keyframes gradientBG { 
+            0% {background-position: 0% 50%} 
+            50% {background-position: 100% 50%} 
+            100% {background-position: 0% 50%} 
+        }
+
+        .splash-title {
+            font-size: 2.8rem; font-weight: 900; letter-spacing: -1px;
+            background: linear-gradient(135deg, #fff 30%, var(--primary) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            opacity: 0; animation: scaleIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+        }
+        .splash-sub {
+            color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem; letter-spacing: 2px;
+            text-transform: uppercase; opacity: 0; animation: fadeInUp 0.8s ease 0.3s forwards;
+        }
+
+        /* --- APP SHELL --- */
+        .container {
+            position: relative;
+            background: var(--glass);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border);
+            width: 100%; height: 100%; max-width: 420px; max-height: 880px;
+            display: flex; flex-direction: column; padding: 24px;
+            box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        @media (min-width: 450px) { .container { height: 92vh; border-radius: 36px; } }
+
+        /* --- HEADER --- */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .icon-btn { background: transparent; border: none; color: var(--text); padding: 10px; border-radius: 14px; cursor: pointer; transition: 0.2s; }
+        .icon-btn:active { background: var(--key-bg); transform: scale(0.92); }
+        .app-title { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.02em; }
+
+        /* --- TABS --- */
+        .tabs { display: flex; background: var(--key-bg); padding: 5px; border-radius: 18px; margin-bottom: 24px; border: 1px solid var(--border); }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; background: transparent; color: var(--text-dim);
+            font-size: 0.9rem; font-weight: 600; cursor: pointer; border-radius: 14px;
+            transition: all 0.2s;
+        }
+        .tab-btn.active { background: var(--glass-solid); color: var(--text); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+        /* --- DISPLAY --- */
+        .screen { 
+            text-align: right; margin-bottom: 16px; display: flex; flex-direction: column; justify-content: flex-end; 
+            padding: 20px; border-radius: 24px; background: rgba(0,0,0,0.03); border: 1px solid var(--border);
+            min-height: 140px; position: relative;
+        }
+        .history-preview { color: var(--text-dim); font-size: 1rem; min-height: 1.6rem; margin-bottom: 4px; font-family: var(--font-mono); }
+        .current-input { font-family: var(--font-mono); font-weight: 500; line-height: 1.1; white-space: nowrap; transition: font-size 0.1s; cursor: pointer; }
+        .copy-hint { position: absolute; top: 12px; left: 16px; font-size: 0.75rem; color: var(--success); opacity: 0; transition: opacity 0.3s; font-weight: 600; }
+
+        /* --- KEYPAD --- */
+        .keypad-wrapper { display: grid; grid-template-columns: 3fr 1fr; gap: 14px; height: 100%; flex-grow: 1; }
+        .grid-left { position: relative; overflow: hidden; }
+        .grid-right { display: grid; grid-template-rows: repeat(5, 1fr); gap: 14px; }
+
+        .key-layer {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            opacity: 0; transform: translateY(20px) scale(0.95); pointer-events: none;
+        }
+        .key-layer.active { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+
+        button.key { 
+            padding: 0; border: none; border-radius: 20px; background: var(--key-bg); color: var(--text); 
+            font-size: 1.5rem; cursor: pointer; position: relative; box-shadow: 0 4px 0 var(--key-shadow);
+            transition: transform 0.1s, box-shadow 0.1s; display: flex; align-items: center; justify-content: center;
+        }
+        button.key:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--key-shadow); }
+        button.key.op { color: var(--primary); background: rgba(59, 130, 246, 0.1); font-weight: 600; font-size: 1.6rem; }
+        button.key.sci { color: var(--secondary); font-size: 1.1rem; font-weight: 700; background: rgba(168, 85, 247, 0.1); }
+        button.key.eq { background: var(--primary); color: white; box-shadow: 0 4px 15px var(--primary-glow); border: none; font-size: 1.8rem; }
+        
+        .mode-switch { grid-column: span 3; background: var(--glass-solid); border: 1px solid var(--border); color: var(--text-dim); font-size: 0.9rem; font-weight: 700; gap: 8px; }
+        .lock-badge { position: absolute; top: 5px; right: 5px; font-size: 0.65rem; opacity: 0.7; }
+
+        /* --- MENUS & TOOLS --- */
+        .view-section { display: none; flex-direction: column; height: 100%; animation: slideIn 0.3s ease; }
+        .view-section.active { display: flex; }
+
+        .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; overflow-y: auto; padding-bottom: 20px; }
+        .tool-card {
+            background: var(--key-bg); border: 1px solid var(--border); border-radius: 22px; padding: 24px;
+            text-align: center; cursor: pointer; transition: 0.2s;
+        }
+        .tool-card:active { transform: scale(0.96); background: var(--primary-glow); }
+        .tool-name { font-weight: 600; font-size: 0.95rem; display: block; margin-top: 10px; }
+
+        .input-group { margin-bottom: 16px; }
+        .label { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 8px; display: block; margin-left: 4px; }
+        input, select {
+            width: 100%; padding: 16px; background: var(--key-bg); border: 1px solid var(--border);
+            border-radius: 16px; color: var(--text); font-size: 1.1rem; outline: none;
+            font-family: var(--font-mono); transition: border 0.2s;
+        }
+        input:focus { border-color: var(--primary); }
+        
+        /* --- SIDE MENU --- */
+        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(8px); z-index: 50; display:none; opacity:0; transition: opacity 0.3s; }
+        .overlay.open { display: block; opacity: 1; }
+        
+        .side-menu {
+            position: fixed; top: 0; left: 0; width: 85%; height: 100%; max-width: 320px;
+            background: var(--bg-color); border-right: 1px solid var(--border);
+            z-index: 51; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            padding: 30px; display: flex; flex-direction: column;
+        }
+        .side-menu.open { transform: translateX(0); }
+
+        .menu-item { padding: 18px; border-radius: 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 15px; color: var(--text-dim); cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 1.05rem; }
+        .menu-item:active { background: var(--key-bg); color: var(--text); }
+        
+        /* Toggle Switch */
+        .switch-row { margin-top: auto; padding: 18px; background: rgba(239, 68, 68, 0.1); border-radius: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .switch-toggle { width: 48px; height: 26px; background: rgba(255,255,255,0.2); border-radius: 20px; position: relative; transition: 0.3s; }
+        .switch-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: 0.3s; }
+        .switch-toggle.active { background: var(--danger); }
+        .switch-toggle.active::after { left: 25px; }
+
+        /* --- MODAL --- */
+        .modal {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: var(--bg-color); z-index: 100;
+            display: none; flex-direction: column; justify-content: center; align-items: center; padding: 30px;
+        }
+        .modal.open { display: flex; animation: fadeIn 0.3s; }
+        
+        .action-btn {
+            width: 100%; padding: 18px; background: var(--primary); color: white;
+            border: none; border-radius: 18px; font-weight: 700; font-size: 1.1rem;
+            margin-top: 15px; cursor: pointer; transition: transform 0.1s;
+        }
+        .action-btn:active { transform: scale(0.98); }
+
+        /* GOOGLE BUTTON */
+        .google-btn {
+            width: 100%; padding: 16px; background: white; color: #111;
+            border: none; border-radius: 18px; font-weight: 600; font-size: 1.05rem;
+            margin-top: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .google-btn:active { transform: scale(0.98); background: #f1f1f1; }
+
+        /* ANIMATIONS */
+        @keyframes scaleIn { from {opacity: 0; transform: scale(0.9);} to {opacity: 1; transform: scale(1);} }
+        @keyframes fadeInUp { from {opacity: 0; transform: translateY(10px);} to {opacity: 1; transform: translateY(0);} }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+        
+        #game-frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 40; display: none; flex-direction: column; }
+        #game-frame.open { display: flex; }
+    </style>
+</head>
+<body>
+
+    <div id="splash">
+        <div class="splash-title">Ace AppDrawer™</div>
+        <div class="splash-sub">Premium Utility Suite</div>
+    </div>
+
+    <div class="overlay" onclick="toggleMenu()"></div>
+    <div class="side-menu">
+        <h2 style="margin-bottom: 30px; font-size: 1.8rem;">Menu</h2>
+        
+        <div class="menu-item" onclick="toggleMenu(); switchTab('calc')"><span>∫</span> Standard Calculator</div>
+        <div class="menu-item" onclick="handleLocked('history')"><span>📜</span> History <span style="margin-left:auto; font-size:0.8rem;">🔒</span></div>
+        
+        <div style="margin:24px 0 10px 0; font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--text-dim); letter-spacing:1px;">Premium Games</div>
+        <div class="menu-item" onclick="handleLocked('guessit')"><span>🎮</span> GuessIt <span style="margin-left:auto; font-size:0.8rem;">🔒</span></div>
+        <div class="menu-item" onclick="handleLocked('ttt')"><span>❌</span> Tic Tac Toe <span style="margin-left:auto; font-size:0.8rem;">🔒</span></div>
+
+        <hr style="border:0; border-top:1px solid var(--border); margin:24px 0;">
+        <a href="mailto:sarojg085@gmail.com" class="menu-item" style="text-decoration:none;"><span>📩</span> Feedback</a>
+
+        <div class="switch-row" onclick="togglePrivacy()">
+            <span style="color:var(--danger); font-weight:600; font-size:0.95rem;">Privacy Mode</span>
+            <div id="privacy-switch" class="switch-toggle"></div>
+        </div>
+        <div style="text-align:center; font-size:0.7rem; color:var(--text-dim); margin-top:8px;">Stops Local Storage</div>
+    </div>
+
+    <div id="otp-modal" class="modal">
+        <h2 style="margin-bottom:10px;">Unlock Premium</h2>
+        <p style="color:var(--text-dim); text-align:center; margin-bottom:25px; line-height:1.4;">Verify to access Scientific Functions,<br>History & Games.</p>
+        
+        <div style="display:flex; background:var(--key-bg); padding:4px; border-radius:14px; width:100%; margin-bottom:20px;">
+            <button class="tab-btn active" id="btn-m" onclick="switchOtp('mobile')">Mobile</button>
+            <button class="tab-btn" id="btn-e" onclick="switchOtp('email')">Email</button>
+        </div>
+
+        <div id="otp-step-1" style="width:100%;">
+            <div id="mobile-box" style="display:flex; gap:10px;">
+                <select id="country" style="width:90px;"><option value="+91">+91</option><option value="+1">+1</option></select>
+                <input type="tel" id="mobile-in" placeholder="Phone Number">
+            </div>
+            <div id="email-box" style="display:none;">
+                <input type="email" id="email-in" placeholder="name@example.com">
+            </div>
+            <div id="recaptcha-container"></div>
+            <button class="action-btn" id="btn-send">Send Code</button>
+        </div>
+
+        <div id="otp-step-2" style="display:none; width:100%;">
+            <input type="number" id="otp-in" style="text-align:center; letter-spacing:8px; font-size:1.5rem;" placeholder="000000">
+            <button class="action-btn" id="btn-verify">Verify</button>
+        </div>
+
+        <button class="google-btn" onclick="loginGoogle()">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.7 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.6c-.3 1.5-1.1 2.8-2.4 3.7v3h3.9c2.3-2.1 3.6-5.2 3.6-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.5 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.5v3.1C3.5 21.5 7.5 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.2c-.2-.7-.4-1.4-.4-2.2s.2-1.5.4-2.2V6.6H1.5C.5 8.6 0 10.7 0 12.9s.5 4.3 1.5 6.3l3.9-3c0-.1 0-.1 0 0z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8L19.9 3.3C17.9 1.4 15.2 0 12 0 7.5 0 3.5 2.5 1.5 6.6l3.9 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+            Sign in with Google
+        </button>
+
+        <div id="otp-msg" style="margin-top:20px; color:var(--danger); min-height:20px; text-align:center;"></div>
+        <button style="background:none; border:none; color:var(--text-dim); margin-top:15px; text-decoration:underline; cursor:pointer;" onclick="closeModal()">Cancel</button>
+    </div>
+
+    <div id="game-frame">
+        <div style="padding:15px; border-bottom:1px solid var(--border); display:flex; align-items:center;">
+            <button onclick="closeGame()" style="background:none; border:none; color:var(--text); font-size:1.1rem; cursor:pointer;">← Back</button>
+            <span style="margin-left:auto; font-weight:700;">Tic Tac Toe</span>
+        </div>
+        <iframe id="ttt-iframe" style="width:100%; height:100%; border:none;"></iframe>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <button class="icon-btn" onclick="toggleMenu()">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+            </button>
+            <div class="app-title">Ace AppDrawer™</div>
+            <button class="icon-btn" onclick="toggleTheme()">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+            </button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('calc', this)">Calculator</button>
+            <button class="tab-btn" onclick="switchTab('tools', this)">Tools</button>
+            <button class="tab-btn" onclick="switchTab('curr', this)">Currency</button>
+        </div>
+
+        <div id="calc-view" class="view-section active">
+            <div class="screen" onclick="copyResult()">
+                <div class="copy-hint" id="copy-hint">Copied!</div>
+                <div class="history-preview" id="history-prev"></div>
+                <div class="current-input" id="display" style="font-size: 3.5rem;">0</div>
+            </div>
+
+            <div class="keypad-wrapper">
+                <div class="grid-left">
+                    <div class="key-layer active" id="keys-num">
+                        <button class="key op" onclick="op('AC')">AC</button>
+                        <button class="key op" onclick="op('DEL')">⌫</button>
+                        <button class="key op" onclick="op('%')">%</button>
+                        
+                        <button class="key" onclick="num('7')">7</button>
+                        <button class="key" onclick="num('8')">8</button>
+                        <button class="key" onclick="num('9')">9</button>
+                        
+                        <button class="key" onclick="num('4')">4</button>
+                        <button class="key" onclick="num('5')">5</button>
+                        <button class="key" onclick="num('6')">6</button>
+                        
+                        <button class="key" onclick="num('1')">1</button>
+                        <button class="key" onclick="num('2')">2</button>
+                        <button class="key" onclick="num('3')">3</button>
+                        
+                        <button class="key mode-switch" onclick="toggleMode()">
+                            <span>123</span> ⇄ <span style="opacity:0.5">SCI</span>
+                        </button>
+                        <button class="key" onclick="num('0')">0</button>
+                        <button class="key" onclick="num('.')">.</button>
+                    </div>
+
+                    <div class="key-layer" id="keys-sci">
+                        <button class="key sci" onclick="premium('sin')">sin</button>
+                        <button class="key sci" onclick="premium('cos')">cos</button>
+                        <button class="key sci" onclick="premium('tan')">tan</button>
+                        
+                        <button class="key sci" onclick="premium('log')">log</button>
+                        <button class="key sci" onclick="premium('ln')">ln</button>
+                        <button class="key sci" onclick="premium('pi')">π</button>
+                        
+                        <button class="key sci" onclick="premium('fact')">x!</button>
+                        <button class="key sci" onclick="premium('e')">e</button>
+                        <button class="key sci" onclick="premium('pow')">^</button>
+                        
+                        <button class="key sci" onclick="premium('root')">√<span class="lock-badge">🔒</span></button>
+                        <button class="key sci" onclick="premium('sqr')">x²<span class="lock-badge">🔒</span></button>
+                        <button class="key sci" onclick="premium('cube')">x³<span class="lock-badge">🔒</span></button>
+                        
+                        <button class="key mode-switch" onclick="toggleMode()">
+                            <span style="opacity:0.5">123</span> ⇄ <span>SCI</span>
+                        </button>
+                        <button class="key sci" onclick="num('(')">(</button>
+                        <button class="key sci" onclick="num(')')">)</button>
+                    </div>
+                </div>
+
+                <div class="grid-right">
+                    <button class="key op" onclick="op('/')">÷</button>
+                    <button class="key op" onclick="op('*')">×</button>
+                    <button class="key op" onclick="op('-')">-</button>
+                    <button class="key op" onclick="op('+')">+</button>
+                    <button class="key eq" onclick="solve()">=</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tools-view" class="view-section">
+            <div class="tools-grid" id="tools-main">
+                <div class="tool-card" onclick="openTool('age')"><span style="font-size:2rem">🎂</span><span class="tool-name">Age</span></div>
+                <div class="tool-card" onclick="openTool('bmi')"><span style="font-size:2rem">⚖️</span><span class="tool-name">BMI</span></div>
+                <div class="tool-card" onclick="openTool('disc')"><span style="font-size:2rem">🏷️</span><span class="tool-name">Discount</span></div>
+                <div class="tool-card" onclick="openTool('tip')"><span style="font-size:2rem">💸</span><span class="tool-name">Tip Calc</span></div>
+                <div class="tool-card" onclick="openTool('date')"><span style="font-size:2rem">📅</span><span class="tool-name">Date Diff</span></div>
+                <div class="tool-card" onclick="openUnit('len')"><span style="font-size:2rem">📏</span><span class="tool-name">Length</span></div>
+                <div class="tool-card" onclick="openUnit('area')"><span style="font-size:2rem">⬛</span><span class="tool-name">Area</span></div>
+                <div class="tool-card" onclick="openUnit('spd')"><span style="font-size:2rem">🚀</span><span class="tool-name">Speed</span></div>
+                <div class="tool-card" onclick="openUnit('time')"><span style="font-size:2rem">⏳</span><span class="tool-name">Time</span></div>
+            </div>
+
+            <div id="tool-ui" style="display:none; flex-direction:column;">
+                <h3 id="tool-title" style="margin-bottom:20px;">Tool</h3>
+                <div id="tool-inputs"></div>
+                <div style="background:var(--primary-glow); padding:20px; border-radius:16px; text-align:center; margin-top:20px;">
+                    <span id="tool-res" style="font-size:1.8rem; font-weight:700; color:var(--primary);">--</span>
+                </div>
+                <button class="action-btn" onclick="calcTool()">Calculate</button>
+                <button onclick="closeTool()" style="margin-top:20px; background:none; border:none; color:var(--text-dim); cursor:pointer;">Back</button>
+            </div>
+        </div>
+
+        <div id="curr-view" class="view-section">
+            <div class="input-group"><span class="label">Amount</span><input type="number" id="c-amt" value="1" oninput="runCurr()"></div>
+            <div style="display:flex; gap:12px;">
+                <div style="flex:1"><span class="label">From</span><select id="c-from" onchange="runCurr()"><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="INR">INR (₹)</option><option value="GBP">GBP (£)</option></select></div>
+                <div style="flex:1"><span class="label">To</span><select id="c-to" onchange="runCurr()"><option value="INR">INR (₹)</option><option value="USD">USD ($)</option><option value="EUR">EUR (€)</option><option value="GBP">GBP (£)</option></select></div>
+            </div>
+            <div style="text-align:center; margin-top:40px;">
+                <div id="c-res" style="font-size:2.5rem; font-weight:700; color:var(--primary);">...</div>
+                <div style="font-size:0.8rem; color:var(--text-dim);">Live Exchange Rate</div>
+            </div>
+        </div>
+
+        <div id="hist-view" class="view-section" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h2>History</h2>
+                <button onclick="clearHist()" style="color:var(--danger); background:none; border:none; font-weight:600;">Clear</button>
+            </div>
+            <div id="hist-list" style="overflow-y:auto; flex-grow:1;"></div>
+            <button onclick="switchTab('calc')" style="width:100%; margin-top:15px; padding:15px; background:var(--key-bg); border:none; border-radius:14px; color:var(--text);">Back</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // CONFIG
+        const app = initializeApp({ apiKey: "AIzaSyCKlQylNqM06kcf698NR3SyC6V50Fhqst8", authDomain: "otp-plugin-ebf6c.firebaseapp.com", projectId: "otp-plugin-ebf6c", storageBucket: "otp-plugin-ebf6c.firebasestorage.app", messagingSenderId: "1075104070230", appId: "1:1075104070230:web:8773d15b225efaf8e599f7" });
+        const auth = getAuth(app); auth.useDeviceLanguage();
+        const googleProvider = new GoogleAuthProvider();
+        emailjs.init("xFX6s9tUcqNBSswaj");
+
+        // STATE
+        let isPremium = false;
+        let pendingAction = null;
+        let currentTool = null;
+        let historyData = [];
+        let privacyMode = false;
+        
+        // HAPTICS
+        const tap = () => { if(navigator.vibrate) navigator.vibrate(8); };
+        const heavy = () => { if(navigator.vibrate) navigator.vibrate(30); };
+
+        // INIT
+        window.onload = () => {
+            setTimeout(() => {
+                const s = document.getElementById('splash');
+                s.style.opacity = '0';
+                setTimeout(() => s.style.visibility = 'hidden', 600);
+            }, 2500);
+
+            const saved = localStorage.getItem('ace_privacy');
+            if(saved === 'true') { privacyMode = true; document.getElementById('privacy-switch').classList.add('active'); }
+            else { 
+                const h = localStorage.getItem('ace_hist');
+                if(h) historyData = JSON.parse(h);
+            }
+        };
+
+        // CALC ENGINE
+        let curr='0', prev='', op=null, reset=false;
+        const disp = document.getElementById('display'), histPrev = document.getElementById('history-prev');
+
+        const resize = () => {
+            const len = disp.innerText.length;
+            if(len<9) disp.style.fontSize='3.5rem';
+            else if(len<13) disp.style.fontSize='2.5rem';
+            else disp.style.fontSize='1.5rem';
+        };
+
+        const format = (n) => {
+            if(isNaN(n) || !isFinite(n)) return "Error";
+            return n.toLocaleString('fullwide',{useGrouping:false,maximumFractionDigits:10});
+        };
+
+        window.num = (n) => { tap(); if(curr==='0'||reset){curr=n;reset=false;}else{curr+=n;} disp.innerText=curr; resize(); };
+        
+        window.op = (o) => {
+            tap();
+            if(o==='AC'){ curr='0'; prev=''; op=null; histPrev.innerText=''; disp.innerText='0'; resize(); return; }
+            if(o==='DEL'){ if(!reset)curr=curr.slice(0,-1)||'0'; disp.innerText=curr; resize(); return; }
+            if(o==='%'){ curr=(parseFloat(curr)/100).toString(); disp.innerText=curr; resize(); return; }
+            if(op) window.solve();
+            prev=curr; op=o; reset=true; histPrev.innerText = `${curr} ${o}`;
+        };
+
+        window.solve = () => {
+            heavy(); if(!op)return;
+            const a=parseFloat(prev), b=parseFloat(curr); let res=0;
+            if(op==='+')res=a+b; if(op==='-')res=a-b; if(op==='*')res=a*b; if(op==='/')res=b===0?0:a/b;
+            
+            const clean = format(res);
+            if(!privacyMode) {
+                historyData.unshift({eq:`${prev} ${op} ${curr}`, res:clean});
+                if(historyData.length>20) historyData.pop();
+                localStorage.setItem('ace_hist', JSON.stringify(historyData));
+            }
+            curr=clean; op=null; reset=true; histPrev.innerText=''; disp.innerText=curr; resize();
+        };
+
+        window.premium = (feat) => {
+            tap();
+            const v = parseFloat(curr);
+            const locked = ['root','sqr','cube'];
+            
+            if(locked.includes(feat) && !isPremium) { pendingAction=feat; openModal(); return; }
+
+            if(feat==='sin') curr=Math.sin(v); if(feat==='cos') curr=Math.cos(v); if(feat==='tan') curr=Math.tan(v);
+            if(feat==='log') curr=Math.log10(v); if(feat==='ln') curr=Math.log(v);
+            if(feat==='pi') curr=Math.PI; if(feat==='e') curr=Math.E;
+            if(feat==='fact'){ let f=1; for(let i=2;i<=v;i++)f*=i; curr=f; }
+            if(feat==='pow'){ op='^'; prev=curr; reset=true; histPrev.innerText=`${curr} ^`; return; }
+            
+            if(feat==='root') curr=Math.sqrt(v); if(feat==='sqr') curr=Math.pow(v,2); if(feat==='cube') curr=Math.pow(v,3);
+            
+            curr=format(parseFloat(curr)); disp.innerText=curr; reset=true; resize();
+        };
+
+        // UI & NAVIGATION
+        window.copyResult = () => { navigator.clipboard.writeText(curr); const h = document.getElementById('copy-hint'); h.style.opacity=1; setTimeout(()=>h.style.opacity=0, 1000); };
+        window.switchTab = (id, btn) => { tap(); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if(btn) btn.classList.add('active'); document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active')); document.getElementById(id+'-view').classList.add('active'); };
+        window.toggleMode = () => { tap(); document.getElementById('keys-num').classList.toggle('active'); document.getElementById('keys-sci').classList.toggle('active'); };
+        window.toggleMenu = () => { tap(); document.querySelector('.side-menu').classList.toggle('open'); document.querySelector('.overlay').classList.toggle('open'); };
+        window.togglePrivacy = () => { tap(); privacyMode = !privacyMode; document.getElementById('privacy-switch').classList.toggle('active'); localStorage.setItem('ace_privacy', privacyMode); if(privacyMode) { localStorage.removeItem('ace_hist'); historyData=[]; } };
+
+        window.handleLocked = (feat) => {
+            tap();
+            if(isPremium) {
+                if(feat === 'guessit') window.open('https://aceyash-dev.github.io/GuessIt/', '_blank');
+                if(feat === 'ttt') { toggleMenu(); document.getElementById('game-frame').classList.add('open'); loadTTT(); }
+                if(feat === 'history') { toggleMenu(); document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active')); document.getElementById('hist-view').style.display = 'flex'; document.getElementById('hist-view').classList.add('active'); renderHist(); }
+            } else {
+                pendingAction = feat; toggleMenu(); openModal();
+            }
+        };
+
+        // VERIFICATION
+        let currentOtp = 'mobile'; let generatedOtp = null; let confirmResult = null;
+        const openModal = () => document.getElementById('otp-modal').classList.add('open');
+        window.closeModal = () => document.getElementById('otp-modal').classList.remove('open');
+        window.switchOtp = (m) => { tap(); currentOtp = m; document.getElementById('btn-m').className = m==='mobile'?'tab-btn active':'tab-btn'; document.getElementById('btn-e').className = m==='email'?'tab-btn active':'tab-btn'; document.getElementById('mobile-box').style.display = m==='mobile'?'flex':'none'; document.getElementById('email-box').style.display = m==='email'?'block':'none'; };
+
+        document.getElementById('btn-send').onclick = async () => {
+            const msg = document.getElementById('otp-msg'); msg.innerText = "Sending...";
+            try {
+                if(currentOtp==='mobile') { if(!window.recaptchaVerifier) window.recaptchaVerifier=new RecaptchaVerifier(auth,'recaptcha-container',{'size':'invisible'}); confirmResult = await signInWithPhoneNumber(auth, document.getElementById('country').value+document.getElementById('mobile-in').value, window.recaptchaVerifier); } 
+                else { generatedOtp = Math.floor(100000+Math.random()*900000).toString(); await emailjs.send("service_03ms9st","template_o7blarq",{to_email:document.getElementById('email-in').value, otp_code:generatedOtp}); }
+                document.getElementById('otp-step-1').style.display='none'; document.getElementById('otp-step-2').style.display='block'; msg.innerText = "";
+            } catch(e) { msg.innerText = "Error sending code"; msg.style.color="var(--danger)"; }
+        };
+
+        document.getElementById('btn-verify').onclick = async () => {
+            const code = document.getElementById('otp-in').value; let ok = false;
+            if(currentOtp==='mobile') { try{await confirmResult.confirm(code); ok=true;}catch(e){} } else { if(code===generatedOtp) ok=true; }
+            if(ok) { isPremium=true; closeModal(); heavy(); document.querySelectorAll('.lock-badge').forEach(e => e.innerText=''); document.querySelectorAll('.menu-item span[style*="font-size:0.8rem"]').forEach(e => e.innerText='✅'); if(pendingAction) window.handleLocked(pendingAction); } else { document.getElementById('otp-msg').innerText = "Invalid Code"; }
+        };
+
+        window.loginGoogle = async () => {
+            try {
+                await signInWithPopup(auth, googleProvider);
+                isPremium=true; closeModal(); heavy(); document.querySelectorAll('.lock-badge').forEach(e => e.innerText=''); document.querySelectorAll('.menu-item span[style*="font-size:0.8rem"]').forEach(e => e.innerText='✅'); if(pendingAction) window.handleLocked(pendingAction);
+            } catch(error) { document.getElementById('otp-msg').innerText = "Google Sign-In Failed"; document.getElementById('otp-msg').style.color="var(--danger)"; }
+        };
+
+        // TOOLS & CURRENCY
+        const unitData = { len:[1,1000,0.01,0.3048], area:[1,0.0929,4046,10000], spd:[1,1.609,3.6], time:[1,60,3600] };
+        let xRates={}; fetch('https://api.exchangerate-api.com/v4/latest/USD').then(r=>r.json()).then(d=>xRates=d.rates);
+
+        window.openTool = (t) => { tap(); currentTool=t; document.getElementById('tools-main').style.display='none'; document.getElementById('tool-ui').style.display='flex'; const h = document.getElementById('tool-title'), ins = document.getElementById('tool-inputs'); document.getElementById('tool-res').innerText = '--'; ins.innerHTML = ''; if(t==='age') { h.innerText="Age"; ins.innerHTML=`<div class="input-group"><span class="label">Date of Birth</span><input type="date" id="t1"></div>`; } else if(t==='bmi') { h.innerText="BMI"; ins.innerHTML=`<div class="input-group"><span class="label">Weight (kg)</span><input type="number" id="t1"></div><div class="input-group"><span class="label">Height (cm)</span><input type="number" id="t2"></div>`; } else if(t==='disc') { h.innerText="Discount"; ins.innerHTML=`<div class="input-group"><span class="label">Price</span><input type="number" id="t1"></div><div class="input-group"><span class="label">Discount %</span><input type="number" id="t2"></div>`; } else if(t==='tip') { h.innerText="Tip"; ins.innerHTML=`<div class="input-group"><span class="label">Bill</span><input type="number" id="t1"></div><div class="input-group"><span class="label">Tip %</span><input type="number" id="t2" value="15"></div>`; } else if(t==='date') { h.innerText="Date Diff"; ins.innerHTML=`<div class="input-group"><span class="label">Start</span><input type="date" id="t1"></div><div class="input-group"><span class="label">End</span><input type="date" id="t2"></div>`; } };
+        window.openUnit = (u) => { tap(); currentTool='u_'+u; document.getElementById('tools-main').style.display='none'; document.getElementById('tool-ui').style.display='flex'; document.getElementById('tool-title').innerText="Converter"; document.getElementById('tool-inputs').innerHTML=`<div class="input-group"><span class="label">Value</span><input type="number" id="t1"></div>`; };
+        window.closeTool = () => { tap(); document.getElementById('tools-main').style.display='grid'; document.getElementById('tool-ui').style.display='none'; };
+        window.calcTool = () => { tap(); const t=currentTool, v1=document.getElementById('t1').value, res=document.getElementById('tool-res'); if(t==='age') res.innerText = Math.floor((new Date()-new Date(v1))/31557600000)+" Yrs"; if(t==='bmi') res.innerText = (v1/Math.pow(document.getElementById('t2').value/100,2)).toFixed(1); if(t==='disc') res.innerText = (v1*(1-document.getElementById('t2').value/100)).toFixed(2); if(t==='tip') res.innerText = (parseFloat(v1)*(1+document.getElementById('t2').value/100)).toFixed(2); if(t==='date') res.innerText = Math.floor(Math.abs(new Date(v1)-new Date(document.getElementById('t2').value))/86400000)+" Days"; if(t.startsWith('u_')) res.innerText = "Check Calc Tab"; };
+        window.runCurr = () => { const v=document.getElementById('c-amt').value, f=document.getElementById('c-from').value, t=document.getElementById('c-to').value; if(xRates[t]) document.getElementById('c-res').innerText=((v/xRates[f])*xRates[t]).toFixed(2); };
+
+        // HISTORY
+        const renderHist = () => { const l = document.getElementById('hist-list'); l.innerHTML=''; historyData.forEach(h => { const d = document.createElement('div'); d.style.padding='15px'; d.style.borderBottom='1px solid var(--border)'; d.style.textAlign='right'; d.innerHTML=`<div style="color:var(--text-dim); font-family:var(--font-mono);">${h.eq}</div><div style="color:var(--primary); font-size:1.4rem; font-weight:700;">${h.res}</div>`; l.appendChild(d); }); };
+        window.clearHist = () => { historyData=[]; localStorage.removeItem('ace_hist'); renderHist(); };
+
+        // TIC TAC TOE
+        window.closeGame = () => document.getElementById('game-frame').classList.remove('open');
+        window.loadTTT = () => { const doc = document.getElementById('ttt-iframe').contentWindow.document; doc.open(); doc.write(`<!DOCTYPE html><html><head><style>body{margin:0;background:#050505;color:white;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh}.cell{width:80px;height:80px;background:rgba(255,255,255,0.1);margin:5px;display:flex;align-items:center;justify-content:center;font-size:2.5em;border-radius:15px;cursor:pointer}.row{display:flex}.win{background:rgba(59,130,246,0.5)}</style></head><body><h2 id="st" style="margin-bottom:20px">Player X</h2><div id="bd"></div><script>let b=Array(9).fill(null),p='X',go=true;const bd=document.getElementById('bd');function init(){bd.innerHTML='';for(let i=0;i<9;i+=3){let r=document.createElement('div');r.className='row';for(let j=0;j<3;j++){let c=document.createElement('div');c.className='cell';let idx=i+j;c.onclick=()=>mv(idx);c.id='c'+idx;r.appendChild(c);}bd.appendChild(r);}}function mv(i){if(!b[i]&&go){b[i]=p;document.getElementById('c'+i).innerText=p;chk();p=p=='X'?'O':'X';if(go)document.getElementById('st').innerText='Player '+p;}}function chk(){[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].forEach(w=>{if(b[w[0]]&&b[w[0]]==b[w[1]]&&b[w[1]]==b[w[2]]){go=false;document.getElementById('st').innerText=b[w[0]]+' Wins!';w.forEach(x=>document.getElementById('c'+x).classList.add('win'));setTimeout(()=>{b.fill(null);go=true;init();},2000);}});}init();<\/script></body></html>`); doc.close(); };
+        window.toggleTheme = () => { tap(); document.body.setAttribute('data-theme', document.body.getAttribute('data-theme')==='dark'?'light':'dark'); };
+
+        /* --- AD SCRIPT REGISTRATION --- */
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Ad Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Ad Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
