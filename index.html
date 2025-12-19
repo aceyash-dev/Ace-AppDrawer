@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <title>Ace AppDrawer™</title>
+    
+    <script>
+        const savedTheme = localStorage.getItem('ace_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
+    <style>
+        /* --- 1. DESIGN TOKENS --- */
+        :root {
+            --bg-color: #050505;
+            --glass: rgba(20, 20, 25, 0.7);
+            --glass-solid: rgba(30, 30, 35, 0.95);
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
+            --text-dim: #94a3b8;
+            --key-bg: rgba(255, 255, 255, 0.05);
+            --key-shadow: rgba(0, 0, 0, 0.4);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --secondary: #a855f7;
+            --danger: #ef4444;
+            --success: #10b981;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'SF Mono', 'Fira Code', monospace;
+            --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f0f2f5;
+            --glass: rgba(255, 255, 255, 0.8);
+            --glass-solid: #ffffff;
+            --border: rgba(0, 0, 0, 0.08);
+            --text: #111827;
+            --text-dim: #6b7280;
+            --key-bg: #ffffff;
+            --key-shadow: rgba(0, 0, 0, 0.08);
+        }
+
+        /* --- 2. BASE RESET --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; }
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-color);
+            color: var(--text);
+            display: flex; justify-content: center; align-items: flex-start; /* Aligns top for better mobile feel */
+            height: 100vh; margin: 0; overflow: hidden;
+            transition: background 0.3s ease;
+        }
+
+        /* --- 3. BACKGROUND EFFECTS --- */
+        .bg-orb {
+            position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: -1;
+            animation: float 10s infinite ease-in-out;
+        }
+        .orb-1 { width: 300px; height: 300px; background: var(--primary); top: -50px; left: -50px; }
+        .orb-2 { width: 250px; height: 250px; background: var(--secondary); bottom: 50px; right: -50px; animation-delay: -5s; }
+        @keyframes float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(20px, 30px); } }
+
+        /* --- 4. SPLASH SCREEN --- */
+        #splash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999;
+            background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        .splash-loader {
+            width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* --- 5. APP CONTAINER --- */
+        .container {
+            position: relative; top: 0;
+            width: 100%; max-width: 420px;
+            /* DYNAMIC HEIGHT CALCULATION FOR ADS */
+            height: calc(100vh - 60px); 
+            background: var(--glass);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 20px;
+            overflow: hidden;
+        }
+        @media (min-width: 450px) {
+            .container { 
+                height: 85vh; margin-top: 5vh; 
+                border-radius: 32px; 
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            }
+        }
+
+        /* --- 6. COMPONENTS --- */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .icon-btn { 
+            background: transparent; border: none; color: var(--text); padding: 8px; 
+            border-radius: 12px; cursor: pointer; transition: 0.2s; 
+        }
+        .icon-btn:active { background: var(--key-bg); transform: scale(0.9); }
+        
+        .tabs { 
+            display: flex; background: var(--key-bg); padding: 4px; border-radius: 16px; 
+            margin-bottom: 20px; border: 1px solid var(--border); 
+        }
+        .tab-btn {
+            flex: 1; padding: 10px; border: none; background: transparent; color: var(--text-dim);
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 12px; transition: 0.2s;
+        }
+        .tab-btn.active { background: var(--glass-solid); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+        /* --- CALCULATOR DISPLAY --- */
+        .screen { 
+            flex-shrink: 0; text-align: right; margin-bottom: 15px; padding: 15px 20px;
+            border-radius: 20px; background: rgba(0,0,0,0.02); border: 1px solid var(--border);
+            min-height: 130px; display: flex; flex-direction: column; justify-content: flex-end;
+            position: relative; overflow: hidden;
+        }
+        .history-prev { font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-dim); min-height: 1.2em; margin-bottom: 4px; }
+        .curr-input { font-family: var(--font-mono); font-weight: 500; line-height: 1; transition: font-size 0.1s; }
+        
+        /* --- KEYPAD GRID --- */
+        .keypad-wrapper { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; flex-grow: 1; min-height: 0; }
+        .grid-left { position: relative; display: grid; }
+        .grid-right { display: grid; grid-template-rows: repeat(5, 1fr); gap: 12px; }
+        
+        .key-layer {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+            position: absolute; width: 100%; height: 100%;
+            transition: all 0.4s var(--ease-elastic);
+            opacity: 0; transform: scale(0.9); pointer-events: none;
+        }
+        .key-layer.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+
+        button.key { 
+            border: none; border-radius: 16px; background: var(--key-bg); color: var(--text);
+            font-size: 1.4rem; cursor: pointer; box-shadow: 0 3px 0 var(--key-shadow);
+            transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        button.key:active { transform: translateY(3px); box-shadow: none; }
+        button.op { color: var(--primary); font-weight: 600; background: rgba(59, 130, 246, 0.1); }
+        button.eq { background: var(--primary); color: white; box-shadow: 0 4px 12px var(--primary-glow); }
+        button.sci { color: var(--secondary); font-size: 1rem; font-weight: 700; background: rgba(168, 85, 247, 0.1); }
+        button.mode { grid-column: span 3; font-size: 0.85rem; font-weight: 700; background: var(--glass-solid); border: 1px solid var(--border); }
+
+        /* --- VIEWS --- */
+        .view-section { display: none; flex-direction: column; height: 100%; animation: fadeIn 0.2s ease; overflow-y: auto; }
+        .view-section.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- TOOLS GRID --- */
+        .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 20px; }
+        .tool-card {
+            background: var(--key-bg); border: 1px solid var(--border); border-radius: 18px; padding: 20px;
+            text-align: center; cursor: pointer; transition: 0.2s;
+        }
+        .tool-card:active { background: var(--primary-glow); transform: scale(0.98); }
+
+        /* --- AD FOOTER --- */
+        .ad-footer {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 60px;
+            background: var(--glass-solid); border-top: 1px solid var(--border);
+            z-index: 1000; display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        /* --- MENUS --- */
+        .side-menu {
+            position: fixed; top: 0; left: 0; width: 80%; height: 100%; max-width: 300px;
+            background: var(--bg-color); border-right: 1px solid var(--border);
+            z-index: 2000; transform: translateX(-100%); transition: transform 0.3s var(--ease-elastic);
+            padding: 25px; display: flex; flex-direction: column;
+        }
+        .side-menu.open { transform: translateX(0); }
+        .overlay { 
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .overlay.open { opacity: 1; pointer-events: auto; }
+        
+        .menu-item { 
+            padding: 16px; border-radius: 12px; margin-bottom: 6px; 
+            display: flex; align-items: center; gap: 12px; color: var(--text-dim); 
+            font-weight: 600; cursor: pointer; transition: 0.2s; 
+        }
+        .menu-item:active { background: var(--key-bg); color: var(--text); }
+
+        /* --- MODAL --- */
+        .modal {
+            position: fixed; top:0; left:0; width:100%; height:100%; z-index: 3000;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            display: none; justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal.open { display: flex; animation: fadeIn 0.2s; }
+        .modal-content {
+            background: var(--bg-color); border: 1px solid var(--border);
+            padding: 30px; border-radius: 24px; width: 100%; max-width: 350px;
+            text-align: center; position: relative;
+        }
+
+        input {
+            width: 100%; padding: 14px; background: var(--key-bg); border: 1px solid var(--border);
+            border-radius: 12px; color: var(--text); font-size: 1rem; outline: none; margin-bottom: 15px;
+        }
+        input:focus { border-color: var(--primary); }
+
+        .btn-primary {
+            width: 100%; padding: 14px; background: var(--primary); color: white;
+            border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer;
+        }
+        
+        #game-frame { position: fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-color); z-index: 2500; display:none; flex-direction:column; }
+        #game-frame.open { display: flex; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <div id="splash">
+        <div style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Ace</div>
+        <div class="splash-loader"></div>
+    </div>
+
+    <div class="overlay" onclick="toggleMenu()"></div>
+    <div class="side-menu">
+        <h2 style="margin-bottom: 30px;">Menu</h2>
+        <div class="menu-item" onclick="toggleMenu(); switchTab('calc')"><span>∫</span> Calculator</div>
+        <div class="menu-item" onclick="handleLocked('history')"><span>📜</span> History 🔒</div>
+        <div style="margin:20px 0 10px; font-size:0.75rem; font-weight:bold; color:var(--text-dim); text-transform:uppercase;">Games</div>
+        <div class="menu-item" onclick="handleLocked('guessit')"><span>🎮</span> GuessIt 🔒</div>
+        <div class="menu-item" onclick="handleLocked('ttt')"><span>❌</span> Tic Tac Toe 🔒</div>
+        <div class="menu-item" style="color:var(--success)" onclick="window.open('https://folddared.com/g3ytcqd9?key=97f1a94d4d547e621accca562778e826', '_blank')"><span>🎁</span> Special Offer</div>
+        
+        <div style="margin-top:auto; padding-top:20px; border-top:1px solid var(--border);">
+             <div class="menu-item" onclick="toggleTheme()"><span>🌗</span> Toggle Theme</div>
+        </div>
+    </div>
+
+    <div id="otp-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 10px;">Unlock Premium</h2>
+            <p style="color:var(--text-dim); margin-bottom: 20px; font-size:0.9rem;">Access scientific mode, history, and games.</p>
+            
+            <div id="otp-step-1">
+                <button class="btn-primary" onclick="loginGoogle()">Sign in with Google</button>
+                <button style="background:none; border:none; color:var(--text-dim); margin-top:15px; text-decoration:underline;" onclick="closeModal()">Cancel</button>
+            </div>
+            <div id="otp-msg" style="margin-top:15px; font-size:0.8rem; color:var(--danger);"></div>
+        </div>
+    </div>
+
+    <div id="game-frame">
+        <div style="padding:15px; border-bottom:1px solid var(--border); display:flex; align-items:center;">
+            <button onclick="closeGame()" style="background:none; border:none; color:var(--text); font-size:1.2rem;">←</button>
+            <span style="margin-left:auto; font-weight:700;">Tic Tac Toe</span>
+        </div>
+        <iframe id="ttt-iframe" style="width:100%; height:100%; border:none;"></iframe>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <button class="icon-btn" onclick="toggleMenu()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+            </button>
+            <div class="app-title">Ace AppDrawer™</div>
+            <button class="icon-btn" onclick="toggleTheme()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+            </button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('calc', this)">Calc</button>
+            <button class="tab-btn" onclick="switchTab('tools', this)">Tools</button>
+            <button class="tab-btn" onclick="switchTab('curr', this)">Rates</button>
+        </div>
+
+        <div id="calc-view" class="view-section active">
+            <div class="screen" onclick="copyResult()">
+                <div class="history-prev" id="history-prev"></div>
+                <div class="curr-input" id="display" style="font-size: 3.5rem;">0</div>
+            </div>
+
+            <div class="keypad-wrapper">
+                <div class="grid-left">
+                    <div class="key-layer active" id="keys-num">
+                        <button class="key op" onclick="op('AC')">AC</button>
+                        <button class="key op" onclick="op('DEL')">⌫</button>
+                        <button class="key op" onclick="op('%')">%</button>
+                        
+                        <button class="key" onclick="num('7')">7</button>
+                        <button class="key" onclick="num('8')">8</button>
+                        <button class="key" onclick="num('9')">9</button>
+                        
+                        <button class="key" onclick="num('4')">4</button>
+                        <button class="key" onclick="num('5')">5</button>
+                        <button class="key" onclick="num('6')">6</button>
+                        
+                        <button class="key" onclick="num('1')">1</button>
+                        <button class="key" onclick="num('2')">2</button>
+                        <button class="key" onclick="num('3')">3</button>
+                        
+                        <button class="key mode" onclick="toggleMode()">123 ⇄ SCI</button>
+                        <button class="key" onclick="num('0')">0</button>
+                        <button class="key" onclick="num('.')">.</button>
+                    </div>
+                    
+                    <div class="key-layer" id="keys-sci">
+                        <button class="key sci" onclick="premium('sin')">sin</button>
+                        <button class="key sci" onclick="premium('cos')">cos</button>
+                        <button class="key sci" onclick="premium('tan')">tan</button>
+                        <button class="key sci" onclick="premium('log')">log</button>
+                        <button class="key sci" onclick="premium('pi')">π</button>
+                        <button class="key sci" onclick="premium('pow')">^</button>
+                        <button class="key sci" onclick="premium('root')">√🔒</button>
+                        <button class="key sci" onclick="premium('sqr')">x²🔒</button>
+                        <button class="key sci" onclick="premium('cube')">x³🔒</button>
+                        <button class="key mode" onclick="toggleMode()">123 ⇄ SCI</button>
+                        <button class="key sci" onclick="num('(')">(</button>
+                        <button class="key sci" onclick="num(')')">)</button>
+                    </div>
+                </div>
+
+                <div class="grid-right">
+                    <button class="key op" onclick="op('/')">÷</button>
+                    <button class="key op" onclick="op('*')">×</button>
+                    <button class="key op" onclick="op('-')">-</button>
+                    <button class="key op" onclick="op('+')">+</button>
+                    <button class="key eq" onclick="solve()">=</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tools-view" class="view-section">
+            <div class="tools-grid">
+                <div class="tool-card" onclick="alert('Feature coming soon')"><span style="font-size:2rem">🎂</span><br>Age</div>
+                <div class="tool-card" onclick="alert('Feature coming soon')"><span style="font-size:2rem">⚖️</span><br>BMI</div>
+                <div class="tool-card" onclick="alert('Feature coming soon')"><span style="font-size:2rem">🏷️</span><br>Disc</div>
+                <div class="tool-card" onclick="alert('Feature coming soon')"><span style="font-size:2rem">💸</span><br>Tip</div>
+            </div>
+        </div>
+        
+        <div id="curr-view" class="view-section" style="text-align:center; padding-top:40px;">
+             <div style="font-size:3rem; font-weight:700; color:var(--primary);">...</div>
+             <p style="color:var(--text-dim);">Live Rates Loading</p>
+        </div>
+        
+        <div id="hist-view" class="view-section" style="display:none;">
+            <h2 style="margin-bottom:10px;">History</h2>
+            <div id="hist-list"></div>
+            <button class="btn-primary" style="margin-top:auto;" onclick="switchTab('calc')">Back</button>
+        </div>
+
+    </div>
+
+    <div class="ad-footer">
+        <script type="text/javascript">
+          atOptions = { 'key' : '1118bf0b0ff14f0479475cf87264e9e4', 'format' : 'iframe', 'height' : 50, 'width' : 320, 'params' : {} };
+        </script>
+        <script type="text/javascript" src="https://folddared.com/1118bf0b0ff14f0479475cf87264e9e4/invoke.js"></script>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        // FIREBASE SETUP
+        const app = initializeApp({ apiKey: "AIzaSyCKlQylNqM06kcf698NR3SyC6V50Fhqst8", authDomain: "otp-plugin-ebf6c.firebaseapp.com", projectId: "otp-plugin-ebf6c", storageBucket: "otp-plugin-ebf6c.firebasestorage.app", messagingSenderId: "1075104070230", appId: "1:1075104070230:web:8773d15b225efaf8e599f7" });
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        // 1. SPLASH LOGIC (Optimized)
+        window.onload = () => {
+            const s = document.getElementById('splash');
+            setTimeout(() => { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }, 1500);
+            
+            // Restore History
+            const h = localStorage.getItem('ace_hist');
+            if(h) window.historyData = JSON.parse(h);
+        };
+
+        // 2. THEME LOGIC (Fixed)
+        window.toggleTheme = () => {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('ace_theme', next);
+            // Haptic
+            if(navigator.vibrate) navigator.vibrate(10);
+        };
+
+        // 3. CALC ENGINE
+        let curr='0', prev='', op=null, reset=false;
+        window.historyData = [];
+        let isPremium = false;
+        const disp = document.getElementById('display');
+        
+        const resize = () => {
+            const l = disp.innerText.length;
+            if(l<8) disp.style.fontSize='3.5rem';
+            else if(l<12) disp.style.fontSize='2.5rem';
+            else disp.style.fontSize='1.8rem';
+        };
+
+        window.num = (n) => { 
+            if(curr==='0'||reset){curr=n;reset=false;}else{curr+=n;} 
+            disp.innerText=curr; resize(); 
+            if(navigator.vibrate) navigator.vibrate(5);
+        };
+
+        window.op = (o) => {
+            if(o==='AC'){ curr='0'; prev=''; op=null; document.getElementById('history-prev').innerText=''; disp.innerText='0'; resize(); return; }
+            if(o==='DEL'){ curr=curr.slice(0,-1)||'0'; disp.innerText=curr; resize(); return; }
+            if(o==='%'){ curr=(parseFloat(curr)/100).toString(); disp.innerText=curr; return; }
+            prev=curr; op=o; reset=true; 
+            document.getElementById('history-prev').innerText = `${curr} ${o}`;
+        };
+
+        window.solve = () => {
+            if(!op) return;
+            const a=parseFloat(prev), b=parseFloat(curr); let res=0;
+            if(op==='+') res=a+b; if(op==='-') res=a-b; if(op==='*') res=a*b; if(op==='/') res=b===0?0:a/b;
+            if(op==='^') res=Math.pow(a,b);
+            
+            curr = parseFloat(res.toFixed(10)).toString();
+            op=null; reset=true; 
+            document.getElementById('history-prev').innerText=''; 
+            disp.innerText=curr; resize();
+            
+            // Save History
+            if(isPremium) {
+                window.historyData.unshift(`${prev} ${op || '='} ${b} = ${curr}`);
+                if(window.historyData.length>10) window.historyData.pop();
+                localStorage.setItem('ace_hist', JSON.stringify(window.historyData));
+            }
+        };
+
+        window.premium = (feat) => {
+            if(!isPremium && ['root','sqr','cube'].includes(feat)) { window.openModal(); return; }
+            const v = parseFloat(curr);
+            if(feat==='sin') curr=Math.sin(v); if(feat==='cos') curr=Math.cos(v); if(feat==='tan') curr=Math.tan(v);
+            if(feat==='log') curr=Math.log10(v); if(feat==='pi') curr=Math.PI;
+            if(feat==='root') curr=Math.sqrt(v); if(feat==='sqr') curr=Math.pow(v,2);
+            if(feat==='pow') { window.op('^'); return; }
+            curr=curr.toString(); disp.innerText=curr; reset=true;
+        };
+
+        // 4. NAVIGATION
+        window.switchTab = (id, btn) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById(id+'-view').classList.add('active');
+        };
+
+        window.toggleMode = () => {
+            document.getElementById('keys-num').classList.toggle('active');
+            document.getElementById('keys-sci').classList.toggle('active');
+        };
+
+        window.toggleMenu = () => {
+            document.querySelector('.side-menu').classList.toggle('open');
+            document.querySelector('.overlay').classList.toggle('open');
+        };
+
+        // 5. LOGIN
+        window.openModal = () => { window.toggleMenu(); document.getElementById('otp-modal').classList.add('open'); };
+        window.closeModal = () => document.getElementById('otp-modal').classList.remove('open');
+        
+        window.loginGoogle = async () => {
+            try {
+                await signInWithPopup(auth, googleProvider);
+                isPremium=true; window.closeModal();
+                alert('Premium Unlocked!');
+                document.querySelectorAll('.menu-item span').forEach(e => { if(e.innerText.includes('🔒')) e.innerText = '✅'; });
+            } catch(e) {
+                document.getElementById('otp-msg').innerText = "Login Failed: " + e.message;
+            }
+        };
+
+        window.handleLocked = (feat) => {
+            if(!isPremium) { window.openModal(); return; }
+            if(feat === 'ttt') { window.toggleMenu(); document.getElementById('game-frame').classList.add('open'); window.loadTTT(); }
+            if(feat === 'history') { 
+                window.toggleMenu(); window.switchTab('hist'); 
+                document.getElementById('hist-view').style.display='flex';
+                document.getElementById('hist-list').innerHTML = window.historyData.map(x => `<div>${x}</div>`).join('');
+            }
+        };
+        
+        window.closeGame = () => document.getElementById('game-frame').classList.remove('open');
+        window.loadTTT = () => {
+             const doc = document.getElementById('ttt-iframe').contentWindow.document; doc.open();
+             doc.write('<html><body style="background:#111;color:white;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h1>Tic Tac Toe Loaded</h1></body></html>');
+             doc.close();
+        };
+
+    </script>
+    
+    <script type="text/javascript" src="https://folddared.com/1f/3a/51/1f3a5116d758ece36008271db25c614f.js"></script>
+    <script type="text/javascript" src="https://folddared.com/a1/13/b1/a113b1c3fa8165879f85c9bc44d540f5.js"></script>
+</body>
+</html>
